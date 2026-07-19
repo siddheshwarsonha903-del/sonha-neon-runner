@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Runner</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #0f172a; /* Slate Background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            box-shadow: 0 0 20px #008080; /* Teal Glow around the game window */
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<script>
+const config = {
+    type: Phaser.AUTO,
+    width: 800,
+    height: 400,
+    backgroundColor: '#0f172a', // Slate color
+    physics: {
+        default: 'arcade',
+        arcade: {
+            gravity: { y: 1000 },
+            debug: false
+        }
+    },
+    scene: {
+        preload: preload,
+        create: create,
+        update: update
+    }
+};
+
+const game = new Phaser.Game(config);
+let player;
+let platforms;
+let cursors;
+let score = 0;
+let scoreText;
+let obstacleTimer;
+let obstacles;
+
+function preload() {
+    // बिना बाहरी इमेज के, हम Phaser के अंदर ही शेप्स बनाकर उन्हें कलर करेंगे
+}
+
+function create() {
+    // 1. Title Text with Teal Glow
+    let titleText = this.add.text(400, 50, 'NEON RUNNER', { 
+        fontSize: '42px', 
+        fill: '#008080', 
+        fontWeight: 'bold', 
+        fontFamily: 'Arial' 
+    }).setOrigin(0.5);
+    titleText.setShadow(0, 0, '#008080', 15, true, true);
+
+    // Score Text
+    scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '20px', fill: '#ffffff', fontFamily: 'Arial' });
+
+    // 2. Platforms Group
+    platforms = this.physics.add.staticGroup();
+    
+    // ज़मीन (Base Platform) - Slate/Teal Mix
+    let groundGraphics = this.add.graphics();
+    groundGraphics.fillStyle(0x008080, 1);
+    groundGraphics.fillRect(0, 0, 800, 40);
+    groundGraphics.generateTexture('ground', 800, 40);
+    
+    let ground = platforms.create(400, 380, 'ground').refreshBody();
+
+    // 3. Player (Neon Square)
+    let playerGraphics = this.add.graphics();
+    playerGraphics.fillStyle(0x00ffff, 1); // Bright Cyan/Teal
+    playerGraphics.fillRect(0, 0, 32, 32);
+    playerGraphics.generateTexture('player', 32, 32);
+
+    player = this.physics.add.sprite(100, 300, 'player');
+    player.setCollideWorldBounds(true);
+    
+    // Colliders
+    this.physics.add.collider(player, platforms);
+
+    // 4. Obstacles Group (आने वाली रुकावटें)
+    obstacles = this.physics.add.group();
+    this.physics.add.collider(obstacles, platforms);
+    
+    // Player और Obstacle का टकराव (Game Over)
+    this.physics.add.overlap(player, obstacles, gameOver, null, this);
+
+    // Controls
+    cursors = this.input.keyboard.createCursorKeys();
+    
+    // मोबाइल टच के लिए स्क्रीन क्लिक पर जंप
+    this.input.on('pointerdown', function () {
+        if (player.body.touching.down) {
+            player.setVelocityY(-450);
+        }
+    });
+
+    // हर 1.5 सेकंड में एक बाधा (Obstacle) पैदा करना
+    obstacleTimer = this.time.addEvent({
+        delay: 1500,
+        callback: spawnObstacle,
+        callbackScope: this,
+        loop: true
+    });
+}
+
+function update() {
+    // Keyboard Controls
+    if ((cursors.up.isDown || cursors.space.isDown) && player.body.touching.down) {
+        player.setVelocityY(-450);
+    }
+
+    // स्कोर बढ़ाना
+    score += 1;
+    scoreText.setText('Score: ' + Math.floor(score / 10));
+}
+
+function spawnObstacle() {
+    let obstacleGraphics = this.add.graphics();
+    obstacleGraphics.fillStyle(0xff0055, 1); // Neon Red/Pink Obstacle
+    obstacleGraphics.fillRect(0, 0, 20, 40);
+    obstacleGraphics.generateTexture('obstacle', 20, 40);
+
+    let obstacle = obstacles.create(800, 340, 'obstacle');
+    obstacle.setVelocityX(-300 - (score * 0.05)); // गेम आगे बढ़ने पर स्पीड बढ़ेगी
+    obstacle.setCollideWorldBounds(false);
+    
+    // स्क्रीन से बाहर जाने पर बाधा को डिलीट करना
+    obstacle.checkWorldBounds = true;
+    obstacle.outOfBoundsKill = true;
+}
+
+function gameOver() {
+    this.physics.pause();
+    obstacleTimer.destroy();
+    player.setTint(0xff0000);
+    
+    let overText = this.add.text(400, 200, 'GAME OVER\nTap / Press Space to Restart', { 
+        fontSize: '32px', 
+        fill: '#ff0055', 
+        align: 'center',
+        fontFamily: 'Arial' 
+    }).setOrigin(0.5);
+    
+    // रिस्टार्ट लॉजिक
+    this.input.on('pointerdown', () => { this.scene.restart(); score = 0; });
+    this.input.keyboard.once('keydown-SPACE', () => { this.scene.restart(); score = 0; });
+}
+</script>
+
+</body>
+</html>
